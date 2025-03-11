@@ -13,7 +13,7 @@ namespace Szeminarium1
 
         private static readonly string VertexShaderSource = @"
         #version 330 core
-        layout (location = 0) in vec3 vPos;
+        layout (location = 0) in vec3 vPos2;  // vPos helyett vPos2 (elirunk egy valtozonevet) --> GL_INVALID_OPERATION
 		layout (location = 1) in vec4 vCol;
 
 		out vec4 outCol;
@@ -67,6 +67,7 @@ namespace Szeminarium1
 
             Gl.ShaderSource(vshader, VertexShaderSource);
             Gl.CompileShader(vshader);
+            CheckGLError("Vertex shader compile");
             Gl.GetShader(vshader, ShaderParameterName.CompileStatus, out int vStatus);
             if (vStatus != (int)GLEnum.True)
                 throw new Exception("Vertex shader failed to compile: " + Gl.GetShaderInfoLog(vshader));
@@ -75,9 +76,11 @@ namespace Szeminarium1
             Gl.CompileShader(fshader);
 
             program = Gl.CreateProgram();
+            // link programot attachshader ele raktam --> GL_INVALID_OPERATION
+            Gl.LinkProgram(program);
+            CheckGLError("Shader program link"); // error uzenet
             Gl.AttachShader(program, vshader);
             Gl.AttachShader(program, fshader);
-            Gl.LinkProgram(program);
             Gl.DetachShader(program, vshader);
             Gl.DetachShader(program, fshader);
             Gl.DeleteShader(vshader);
@@ -111,7 +114,7 @@ namespace Szeminarium1
                 -0.5f, -0.5f, 0.0f,
                 +0.5f, -0.5f, 0.0f,
                  0.0f, +0.5f, 0.0f,
-                 1f, 1f, 0f
+                 // 1f, 1f, 0f      - ezt a sort kihagyjuk -> elrontjuk a tombot
             };
 
             float[] colorArray = new float[] {
@@ -121,14 +124,15 @@ namespace Szeminarium1
                 1.0f, 0.0f, 0.0f, 1.0f,
             };
 
-            uint[] indexArray = new uint[] { 
+            uint[] indexArray = new uint[] {
                 0, 1, 2,
                 2, 1, 3
             };
 
             uint vertices = Gl.GenBuffer();
-            Gl.BindBuffer(GLEnum.ArrayBuffer, vertices);
+            // Gl.BindBuffer(GLEnum.ArrayBuffer, vertices);  -- az opengl nem tudja hogy melyik pufferbe toltjuk az adatot --> errort dob vissza (GL_INVALID_OPERATION)
             Gl.BufferData(GLEnum.ArrayBuffer, (ReadOnlySpan<float>)vertexArray.AsSpan(), GLEnum.StaticDraw);
+            CheckGLError("Vertex buffer data upload");  // error uzenet
             Gl.VertexAttribPointer(0, 3, VertexAttribPointerType.Float, false, 0, null);
             Gl.EnableVertexAttribArray(0);
 
@@ -136,6 +140,7 @@ namespace Szeminarium1
             Gl.BindBuffer(GLEnum.ArrayBuffer, colors);
             Gl.BufferData(GLEnum.ArrayBuffer, (ReadOnlySpan<float>)colorArray.AsSpan(), GLEnum.StaticDraw);
             Gl.VertexAttribPointer(1, 4, VertexAttribPointerType.Float, false, 0, null);
+            // 3) atallitom a parametert 2-re (1-rol) --> a param. nem letezik ezert GL_INVALID_VALUE errort dob vissza
             Gl.EnableVertexAttribArray(1);
 
             uint indices = Gl.GenBuffer();
@@ -145,7 +150,7 @@ namespace Szeminarium1
             Gl.BindBuffer(GLEnum.ArrayBuffer, 0);
 
             Gl.UseProgram(program);
-            
+
             Gl.DrawElements(GLEnum.Triangles, (uint)indexArray.Length, GLEnum.UnsignedInt, null); // we used element buffer
             Gl.BindBuffer(GLEnum.ElementArrayBuffer, 0);
             Gl.BindVertexArray(vao);
@@ -156,5 +161,15 @@ namespace Szeminarium1
             Gl.DeleteBuffer(indices);
             Gl.DeleteVertexArray(vao);
         }
+
+        private static void CheckGLError(string message)
+        {
+            GLEnum error = Gl.GetError();
+            if (error != GLEnum.NoError)
+            {
+                Console.WriteLine($"{message}: {error}");
+            }
+        }
+
     }
 }
